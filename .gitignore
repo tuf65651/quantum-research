@@ -1,0 +1,15 @@
+*.pdf
+*.zip
+*.tar
+*.doc
+*.docx
+*.html
+./qiskit-box-putty
+./qiskit-box-putty/*
+"Programming Quantum Arithmetics (Adder, Multiplier, and Exponentiation) \342\200\223 tsmatz_files/"
+"Programming Quantum Phase Estimation (with Quantum Fourier Transform) \342\200\223 tsmatz_files/"
+"Shor\342\200\231s algorithm \342\200\224 Experience Documentation 2.0 documentation_files/"
+"QC\342\200\212\342\200\224\342\200\212Period finding in Shor\342\200\231s Algorithm \342\200\223 Jonathan Hui \342\200\223 Medium_files/"
+./qiskit-tutorials-master/
+./qiskit-tutorials-master/*
+
