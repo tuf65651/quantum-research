@@ -10,7 +10,6 @@ def ripple_carry_bits(circuit, control_bit, acc_reg, scratch_reg, start_shifting
     @param acc_reg: QuantumRegister containing integer to shift
     @param scratch_reg: Quantum registered in initial |0..0> state used to store carry result of each simple addition.
     @param start_shifting_at: index in acc_reg of bit to shift
-    
     """
     
     """
@@ -32,7 +31,16 @@ def ripple_carry_bits(circuit, control_bit, acc_reg, scratch_reg, start_shifting
         circuit.ccx(acc_reg[bit], scratch_reg[bit - 1], scratch_reg[bit])
         circuit.cx(scratch_reg[bit - 1], acc_reg[bit])
         
-    
+# def undo_ripple_carry(circuit, control_bit, acc_reg, scratch_reg, start_shifting_at):
+#     """
+#     Undoes ripple_carry_bits - see documentation above
+#     """
+#     for bit in range(len(acc_reg) - 1, start_shifting_at + 2, -1):
+#         circuit.cx(scratch_reg[bit - 1], acc_reg[bit])
+#         circuit.ccx(acc_reg[bit], scratch_reg[bit - 1], scratch_reg[bit])
+        
+#     circuit.cx(control_bit, acc_reg[start_shifting_at])
+#     circuit.ccx(control_bit, acc_reg[start_shifting_at], scratch_reg[start_shifting_at])
 
 def c_ripple_subtract(circuit, control_bit, min_reg, scratch_reg, start_shifting_at):
     """Conditionally subtract integer 2^start_shifting_at from min_reg
@@ -61,6 +69,21 @@ def c_ripple_subtract(circuit, control_bit, min_reg, scratch_reg, start_shifting
     # Finally flip original target bit
     circuit.cx(control_bit, min_reg[start_shifting_at])
     
+def undo_ripple_borrow(circuit, control_bit, min_reg, scratch_reg, start_shifting_at):
+    """Undoes c_ripple_borrow, see documentation"""
+    
+    circuit.cx(control_bit, min_reg[start_shifting_at])
+    for bit in range(len(scratch_reg) - 1):
+        circuit.cx(scratch_reg[bit], min_reg[bit+1])
+    forward_range = range(start_shifting_at + 1, len(min_reg))
+    for bit in range(forward_range.stop - 1, forward_range.start + 1, forward_range.step * (-1)):
+        circuit.x(min_reg[bit])
+        circuit.ccx(min_reg[bit], scratch_reg[bit - 1], scratch_reg[bit])
+        circuit.x(min_reg[bit])
+    circuit.x(min_reg[start_shifting_at])
+    circuit.ccx(min_reg[start_shifting_at], control_bit, scratch_reg[start_shifting_at])
+    circuit.x(min_reg[start_shifting_at])
+    
 def add_to_b_in_place(circuit, a_reg, b_reg, scratch_reg):
     """|a > | b > => |a > |a+b >
     
@@ -86,7 +109,14 @@ def sub_b_from_a_in_place(circuit, minnd_reg, subtrhnd_reg, scratch_reg):
     for each primitive op (final bit indicates negative difference)
     """
     
-    pass
+    for bit in range(len(subtrhnd_reg)):
+        circuit.reset(scratch_reg)
+        c_ripple_subtract(
+            circuit=circuit,
+            control_bit=subtrhnd_reg[bit],
+            min_reg=minnd_reg,
+            scratch_reg=scratch_reg,
+            start_shifting_at=bit)
 
 def bit_shift_left(circuit, register, places=1):
     """
