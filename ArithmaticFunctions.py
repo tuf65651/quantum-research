@@ -1,4 +1,10 @@
+#########################
+#
+#    Individual Bits 	#
+#
+#########################
 
+# Addition of one bit
 def ripple_carry_bits(circuit, control_bit, acc_reg, scratch_reg, start_shifting_at):
     """Continue a carry operation
     This assumes that whatever simple op triggered the ripple has already occurred.
@@ -42,6 +48,7 @@ def ripple_carry_bits(circuit, control_bit, acc_reg, scratch_reg, start_shifting
 #     circuit.cx(control_bit, acc_reg[start_shifting_at])
 #     circuit.ccx(control_bit, acc_reg[start_shifting_at], scratch_reg[start_shifting_at])
 
+# Subtraction of single bit
 def c_ripple_subtract(circuit, control_bit, min_reg, scratch_reg, start_shifting_at):
     """Conditionally subtract integer 2^start_shifting_at from min_reg
     
@@ -84,6 +91,61 @@ def undo_ripple_borrow(circuit, control_bit, min_reg, scratch_reg, start_shiftin
     circuit.ccx(min_reg[start_shifting_at], control_bit, scratch_reg[start_shifting_at])
     circuit.x(min_reg[start_shifting_at])
     
+
+#################################
+
+#	See A new quantum ripple adder
+#	arxiv:quant-ph/0410184v1
+
+#################################
+
+def MAJ(circuit, bit_a, bit_b, bit_c):
+	"""Compute majority of three inputs and output parity in bit_a."""
+	#NOTE: param names consider illustrations in arxiv paper to move
+	# in alphabetical order bottom to top.
+
+	circuit.cx(bit_a, bit_b)
+	circuit.cx(bit_a, bit_c)
+	circuit.ccx(bit_b, bit_c, bit_a)
+
+
+def UMA(circuit, bit_a, bit_b, bit_c):
+	"""UnMajority and Add
+	"""
+	#NOTE: param names consider illustrations in arxiv paper to move
+	# in alphabetical order bottom to top.circuit.x(bit_b)
+	circuit.x(bit_b)
+	circuit.cx(bit_c, bit_b)
+	circuit.ccx(bit_c, bit_b, bit_a)
+	circuit.x(bit_b)
+	circuit.cx(bit_a, bit_c)
+	circuit.cx(bit_a, bit_b)
+
+
+def CDKM_add(circuit, reg_a, reg_b, scratch):
+	"""Compute sum of reg_a and reg_b and put in reg_b"""
+
+	over_index = len(reg_a)
+
+	MAJ(circuit, reg_a[0], reg_b[0], scratch[0])
+	for bit in range(1, over_index):
+		MAJ(circuit, reg_a[bit], reg_b[bit], reg_a[bit - 1])
+
+	circuit.cx(reg_a[over_index - 1], scratch[1])
+
+	for bit in range(1, over_index-1):
+		UMA(circuit=circuit,
+			bit_a=reg_a[over_index - bit],
+			bit_b=reg_b[over_index - bit],
+			bit_c=reg_a[over_index - bit - 1])
+	UMA(circuit=circuit, bit_a=reg_a[0], bit_b=reg_b[0], bit_c=scratch[0])
+
+#################################
+
+#	Operations on two integers	#
+
+#################################
+
 def add_to_b_in_place(circuit, a_reg, b_reg, scratch_reg):
     """|a > | b > => |a > |a+b >
     
