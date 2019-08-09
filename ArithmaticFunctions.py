@@ -36,6 +36,38 @@ def ripple_carry_bits(circuit, control_bit, acc_reg, scratch_reg, start_shifting
     for bit in range(start_shifting_at + 1, len(acc_reg)):
         circuit.ccx(acc_reg[bit], scratch_reg[bit - 1], scratch_reg[bit])
         circuit.cx(scratch_reg[bit - 1], acc_reg[bit])
+
+# unconditional addition of one bit
+def unconditional_ripple_carry_bits(circuit, acc_reg, scratch_reg, start_shifting_at=0):
+    """Continue a carry operation
+    This assumes that whatever simple op triggered the ripple has already occurred.
+    For example, if the ripple started with addition of 1 to the least significant bit,
+    manually flip and then call function.
+    
+    @param circuit: QuantumCircuit containing operands
+    @param acc_reg: QuantumRegister containing integer to shift
+    @param scratch_reg: Quantum registered in initial |0..0> state used to store carry result of each simple addition.
+    @param start_shifting_at: index in acc_reg of bit to shift
+    """
+    
+    """
+    NOTE: Power is the number of places to shift. Power 1 is controlled by
+    control register's 2nd bit, which is control_reg[1]
+    and refers to shift of 2^1, or shift one place
+    """
+    
+    # If target bit is |1>, flip carry bit corresponding to target bit.
+    circuit.cx(acc_reg[start_shifting_at], scratch_reg[start_shifting_at])
+    # If carry bit flipped, flip sum bit after target bit.
+    circuit.x(acc_reg[start_shifting_at])
+    
+    # After flipping target, state |0> means we should have carried... =>
+    # before flipping target, state |1> means we should carry.
+    
+    # Looping through all remaining bits, flip each bit, if it's 1, carry to the next bit, and flip it back.
+    for bit in range(start_shifting_at + 1, len(acc_reg)):
+        circuit.ccx(acc_reg[bit], scratch_reg[bit - 1], scratch_reg[bit])
+        circuit.cx(scratch_reg[bit - 1], acc_reg[bit])
         
 # def undo_ripple_carry(circuit, control_bit, acc_reg, scratch_reg, start_shifting_at):
 #     """
@@ -114,16 +146,26 @@ def UMA(circuit, bit_a, bit_b, bit_c):
 	"""
 	#NOTE: param names consider illustrations in arxiv paper to move
 	# in alphabetical order bottom to top.circuit.x(bit_b)
-	circuit.x(bit_b)
-	circuit.cx(bit_c, bit_b)
-	circuit.ccx(bit_c, bit_b, bit_a)
-	circuit.x(bit_b)
+
+	circuit.ccx(bit_b, bit_c, bit_a)
 	circuit.cx(bit_a, bit_c)
-	circuit.cx(bit_a, bit_b)
+	circuit.cx(bit_c, bit_b)
+
+	# circuit.x(bit_b)
+	# circuit.cx(bit_c, bit_b)
+	# circuit.ccx(bit_c, bit_b, bit_a)
+	# circuit.x(bit_b)
+	# circuit.cx(bit_a, bit_c)
+	# circuit.cx(bit_a, bit_b)
 
 
 def CDKM_add(circuit, reg_a, reg_b, scratch):
-	"""Compute sum of reg_a and reg_b and put in reg_b"""
+	"""Compute sum of reg_a and reg_b and put in reg_a
+	@param circuit: QuantumCircuit objects involving all other params
+	@param reg_a: QuantumRegister containing addend as input and sum as output
+	@param reg_b: QuanutmRegister containing addned as input
+	@param scratch: two scratch bit register, containing carry control bit and high bit output
+	"""
 
 	over_index = len(reg_a)
 
@@ -219,3 +261,23 @@ def multiply(circuit, multiplicand, multiplier, scratch_zero_check, scratch_carr
         
         # add that scratch term (shifted multiplicand or zero) to accumulated product
         add_to_b_in_place(circuit=circuit, a_reg=scratch_zero_check, b_reg=prod_accumulator, scratch_reg=scratch_carrier)        
+
+def twos_compelement(circuit, reg, scratch_reg):
+
+	for bit in range(len(reg)):
+		circuit.x(reg[bit])
+
+	circuit.reset(scratch_reg)
+
+	unconditional_ripple_carry_bits(circuit=circuit,
+		acc_reg=reg, scratch_reg=scratch_reg, start_shifting_at=0)
+
+def mod_reduce(circuit, base_reg, mod_reg, scratch_carry, scratch_unadd):
+	
+	## Subtraction ##
+	twos_compelement(circuit, base_reg, scratch_unadd)
+	add_to_b_in_place(circuit, mod_reg, base_reg, scratch_carry)
+	twos_compelement(circuit, base_reg, scratch_unadd)
+
+	# If highest carry bit, addition would have rolled over, which means b > a
+
