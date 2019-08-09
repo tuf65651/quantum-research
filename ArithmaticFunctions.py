@@ -262,7 +262,7 @@ def multiply(circuit, multiplicand, multiplier, scratch_zero_check, scratch_carr
         # add that scratch term (shifted multiplicand or zero) to accumulated product
         add_to_b_in_place(circuit=circuit, a_reg=scratch_zero_check, b_reg=prod_accumulator, scratch_reg=scratch_carrier)        
 
-def twos_compelement(circuit, reg, scratch_reg):
+def twos_complement(circuit, reg, scratch_reg):
 
 	for bit in range(len(reg)):
 		circuit.x(reg[bit])
@@ -274,10 +274,22 @@ def twos_compelement(circuit, reg, scratch_reg):
 
 def mod_reduce(circuit, base_reg, mod_reg, scratch_carry, scratch_unadd):
 	
+	rollover_index = len(base_reg) - 1
+
+	# # reset register to potentially store subtrahend in case of rollover
+	# reset(scratch_unadd)
+	
 	## Subtraction ##
-	twos_compelement(circuit, base_reg, scratch_unadd)
+	twos_complement(circuit, base_reg, scratch_carry)
 	add_to_b_in_place(circuit, mod_reg, base_reg, scratch_carry)
-	twos_compelement(circuit, base_reg, scratch_unadd)
+	twos_complement(circuit, base_reg, scratch_carry)
 
-	# If highest carry bit, addition would have rolled over, which means b > a
-
+	# base_reg now has sign bit. 1 means rollback occurred. Otherwise, do nothing.
+	circuit.x(base_reg[rollover_index])
+	c_copy_register(circuit, base_reg[rollover_index], mod_reg, scratch_unadd)
+	circuit.x(base_reg[rollover_index])
+	
+	## Re-subtract the given (rolled-over) difference to get the original minuend
+	twos_complement(circuit, base_reg, scratch_carry)
+	add_to_b_in_place(circuit, scratch_unadd, base_reg, scratch_carry)
+	twos_complement(circuit, base_reg, scratch_carry)
