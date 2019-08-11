@@ -245,6 +245,15 @@ def c_copy_register(circuit, control_bit, origin, dest):
         circuit.ccx(control_bit, origin[bit], dest[bit])
         
 def multiply(circuit, multiplicand, multiplier, scratch_zero_check, scratch_carrier, prod_accumulator):
+	"""Place product of mulitplicand and multiplier into prod_accumulator
+
+	@param circuit: QuantumCircuit object containing other parameters
+	@param mulitiplicand: QuantumRegister containing integer to multiply as input, and |0...0 > as output.
+	@param multiplier: QuantumRegister containing integer to multiply
+	@param scratch_zero_check: QuantumRegister holds scratch work.
+		For every magnitude 1 digit in multiplier, this register will be set to that product of
+		multiplicand and then added to accumulated product
+	@param scratch_carrier: QuantumRegister used as scratch register for additions"""
     
     c_copy_register(circuit=circuit, control_bit=multiplier[0], origin=multiplicand, dest=prod_accumulator)
     
