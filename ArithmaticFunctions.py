@@ -232,21 +232,21 @@ def bit_shift_left(circuit, register, places=1):
         circuit.reset(register[rollover])
         
     # swap every bit 'places' forward, with last bits wrapping around to beginning
+    if places <= 0:
+    	return # irrational behavior if places-1 negative
+
     for bit in range(num_bits - 1,places-1,-1):
         circuit.swap(register[bit], register[bit - places])
         
 def c_copy_register(circuit, control_bit, origin, dest):
-    
-    """sets contents of dest with contents of origin if control_bit
-    WARNING - perform a reset before use
-    """
+    """sets contents of dest with contents of origin if control_bit"""
+
     circuit.reset(dest)
     for bit in range(len(dest)):
         circuit.ccx(control_bit, origin[bit], dest[bit])
         
 def multiply(circuit, multiplicand, multiplier, scratch_zero_check, scratch_carrier, prod_accumulator):
 	"""Place product of mulitplicand and multiplier into prod_accumulator
-
 	@param circuit: QuantumCircuit object containing other parameters
 	@param mulitiplicand: QuantumRegister containing integer to multiply as input, and |0...0 > as output.
 	@param multiplier: QuantumRegister containing integer to multiply
@@ -255,21 +255,22 @@ def multiply(circuit, multiplicand, multiplier, scratch_zero_check, scratch_carr
 		multiplicand and then added to accumulated product
 	@param scratch_carrier: QuantumRegister used as scratch register for additions"""
     
-    c_copy_register(circuit=circuit, control_bit=multiplier[0], origin=multiplicand, dest=prod_accumulator)
+	c_copy_register(circuit=circuit, control_bit=multiplier[0], origin=multiplicand, dest=prod_accumulator)
     
-    for bit in range(1, len(multiplier)):
-        # free up scratch space
-        circuit.reset(scratch_carrier)
-        circuit.reset(scratch_zero_check)
-        
-        # shift multiplicand one space left, to match magnitude of current multiplier bit
-        bit_shift_left(circuit=circuit, register=multiplicand, places=1)
-        
-        # copy multiplicand into scratch register only if multiplicand bit, else keep scratch register |0>
-        c_copy_register(circuit=circuit, control_bit=multiplier[bit], origin=multiplicand, dest=scratch_zero_check)
-        
-        # add that scratch term (shifted multiplicand or zero) to accumulated product
-        add_to_b_in_place(circuit=circuit, a_reg=scratch_zero_check, b_reg=prod_accumulator, scratch_reg=scratch_carrier)        
+    
+	for bit in range(1, len(multiplier)):
+		# free up scratch space
+		circuit.reset(scratch_carrier)
+		circuit.reset(scratch_zero_check)
+
+		# shift multiplicand one space left, to match magnitude of current multiplier bit
+		bit_shift_left(circuit=circuit, register=multiplicand, places=1)
+
+		# copy multiplicand into scratch register only if multiplicand bit, else keep scratch register |0>
+		c_copy_register(circuit=circuit, control_bit=multiplier[bit], origin=multiplicand, dest=scratch_zero_check)
+
+		# add that scratch term (shifted multiplicand or zero) to accumulated product
+		add_to_b_in_place(circuit=circuit, a_reg=scratch_zero_check, b_reg=prod_accumulator, scratch_reg=scratch_carrier)        
 
 def twos_complement(circuit, reg, scratch_reg):
 
@@ -282,6 +283,14 @@ def twos_complement(circuit, reg, scratch_reg):
 		acc_reg=reg, scratch_reg=scratch_reg, start_shifting_at=0)
 
 def mod_reduce(circuit, base_reg, mod_reg, scratch_carry, scratch_unadd):
+	"""Subtract mod_reg content from base_reg content.
+	If base_reg goes negative, add mod back.
+    @param circuit: QuantumCircuit containing operands
+    @param base_reg: QuantumRegister takes base as input and holds reduced base as output
+    @param mod_reg: QuantumRegister takes modulus as input and doesn't change
+    @param scratch_carry: QuantumRegister used as scratch work in all steps
+    @param scratch_unadd: QuantumRegister scratch register set to 0,
+    	or to modulus if sign of base_reg goes negative."""
 	
 	rollover_index = len(base_reg) - 1
 
