@@ -14,11 +14,14 @@ from ArithmaticFunctions import *
 
 backend = Aer.get_backend("qasm_simulator")
 
-x_reg = QuantumRegister(REG_SIZE, 'x')
-base_reg = QuantumRegister(REG_SIZE, 'base')
-scratch_a = QuantumRegister(REG_SIZE, 'sca')
+x_reg = QuantumRegister(5, 'x') # register holds superposition of powers, to which a is raised.
+base_reg = QuantumRegister(REG_SIZE, 'base') # Evaluate a^x in this register
+scratch_a = QuantumRegister(REG_SIZE, 'sca') 
+# Three scratch registers are needed. Each addition requires one carry register.
+# Each multiplication requires additions, a register to hold conditional sum, and product accumulator.
+# Multiplications as bitshifts require additions, conditional subtrahend and conditional shift value.
 scratch_b = QuantumRegister(REG_SIZE, 'scb')
-scratch_c = QuantumRegister(REG_SIZE,, 'scc')
+scratch_c = QuantumRegister(REG_SIZE, 'scc')
 class_reg = ClassicalRegister(REG_SIZE, 'y')
 qc = QuantumCircuit(x_reg, base_reg, scratch_a, scratch_b, class_reg)
 
@@ -30,14 +33,18 @@ def qft(circ, q, n):
             circ.cu1(math.pi/float(2**(k-j)), q[k], q[j])
         circ.barrier()
 
-def flip_twentone(circ, reg):
+def flip_twentyone(circ, reg):
 
 	circ.x(reg[5])
 	circ.x(reg[3])
 	circ.x(reg[0])
 
-def main():
+def flip_fifteen(circ, reg):
 
+	for bit in range(4):
+		circ.x(reg[bit])
+
+def main():
 
 	qft(qc, x_reg, 6)
 
@@ -64,31 +71,27 @@ def main():
 	bit_shift_left(qc, scratch_a)
 	c_copy_register(qc, control_bit=x_reg[0], origin=scratch_a, dest=base_reg)
 
-	#### If x[1], double 4 times
+	#### If x[1], double 2 times
 
-	# Set multiplier for this stage to 1, in case x[1] == 1
+	# Copy into scratch register to double twice
 	qc.reset(scratch_a)
 	c_copy_register(qc, control_bit=x_reg[0], origin=base_reg, dest=scratch_a)
-	bit_shift_left(qc, scratch_a, places=4)
-	# Max value of scratch_a at this point is 2^5. Since period is not known,
+	bit_shift_left(qc, scratch_a, places=2)
+	# Max value of scratch_a at this point is 2^3. Since period is not known,
 	# all future shifts are immediately followed by mod reduction.
-	c_copy_register(qc, control_bit=x_reg[0], origin=scratch_a, dest=base_reg)
 
-	qc.reset(scratch_a)
-	# set scratch_a to hold mod
-	flip_twentone(circ=qc, reg=scratch_a )
-	mod_reduce(
-		circuit=qc,
-		base_reg=base_reg,
-		mod_reg=scratch_a,
-		scratch_carry=scratch_b,
-		scratch_unadd=scratch_c)
+	#### Optimized multiplications are over. Define general case for a=2.
 
-	#### If x[2], double 8 times
-	qc.reset(scratch_a)
-	c_copy_register(qc, control_bit=x_reg[0], origin=base_reg, dest=scratch_a)
-
-	for j in range(8):
-		bit_shift_left(qc, scratch_a, places=1)
-		mod_reduce(qc, scratch_a)
-	c_copy_register(qc, control_bit=x_reg[0], origin=scratch_a, dest=base_reg)
+	#### If x[k], mod double base_reg 2^(k+1) times
+	for k in range(2, len(x_reg)):
+		for j in range(2**k): # Pattern of copy -- double the copy -- reduce -- copy back
+			c_copy_register(qc, control_bit=x_reg[k], origin=base_reg, dest=scratch_a)
+			bit_shift_left(qc, scratch_a, places=1)
+			c_copy_register(qc, control_bit=x_reg[k], origin=scratch_a, dest=base_reg)
+			flip_fifteen(circ=qc, reg=scratch_a )
+			mod_reduce(
+					circuit=qc,
+					base_reg=base_reg,
+					mod_reg=scratch_a,
+					scratch_carry=scratch_b,
+					scratch_unadd=scratch_c)
