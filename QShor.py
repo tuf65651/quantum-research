@@ -8,6 +8,7 @@ from qiskit.compiler import transpile, assemble
 from qiskit.tools.jupyter import *
 from qiskit.visualization import *
 from datetime import datetime
+import math
 
 REG_SIZE=6
 from ArithmaticFunctions import *
@@ -23,7 +24,7 @@ scratch_a = QuantumRegister(REG_SIZE, 'sca')
 scratch_b = QuantumRegister(REG_SIZE, 'scb')
 scratch_c = QuantumRegister(REG_SIZE, 'scc')
 class_reg = ClassicalRegister(REG_SIZE, 'y')
-qc = QuantumCircuit(x_reg, base_reg, scratch_a, scratch_b, class_reg)
+qc = QuantumCircuit(x_reg, base_reg, scratch_a, scratch_b, scratch_c, class_reg)
 
 def qft(circ, q, n):
     """n-bit QFT on q in circ"""
@@ -62,7 +63,7 @@ def build_circuit():
 	"""
 	
 	# Set base to 1
-	qx.x(base_reg[0])
+	qc.x(base_reg[0])
 
 	# When x[0], multiply base by 2 (base *= x^1, implemented as overwrite to 2), else no op.
 	# This is a shortcut for 2^1 to cut down on multiplications.
@@ -115,6 +116,28 @@ def build_circuit():
 def main():
 
 	circuit = build_circuit()
-	qc_opt = transpile(circuit, backend=backend, optimization_level=2)
-	simulate = execute(qc_opt, backend=backend, shots=1024).result()
-	print(simulate.get_counts())
+	num_unopt_ops = circuit.count_ops()
+	try:
+		clumsy_qasm_file = open("Shor_Clumsy.qasm", 'w')
+		clumsy_qasm_file.write(f'Un-optimized circuit uses {num_unopt_ops} gates')
+		clumsy_qasm_file.write(circuit.qasm())
+		clumsy_qasm_file.close()
+		del clumsy_qasm_file
+	except MemoryError:
+		print("Can't write non-optimized circuit to file.")
+    
+	qc_opt = transpile(circuit, backend=backend, optimization_level=1)
+	try:
+		qasm_out_file = open("Shor_Opt.qasm", 'w')
+		qasm_out_file.write(qc_opt.qasm())
+		qasm_out_file.write("\n\n")
+		qasm_out_file.write(f'Optimized circuit uses {qc_opt.count_ops()} gates.')
+		qasm_out_file.write(f'Optimized circuit uses {qc_opt.depth()} qubits.')
+	except MemoryError:
+		print("Can't write optimized circuit to file.")
+	finally:
+		qasm_out_file.close()
+# 	simulate = execute(qc_opt, backend=backend, shots=1024).result()
+# 	print(simulate.get_counts())
+
+main()
