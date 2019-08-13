@@ -14,7 +14,7 @@ from ArithmaticFunctions import *
 
 backend = Aer.get_backend("qasm_simulator")
 
-x_reg = QuantumRegister(5, 'x') # register holds superposition of powers, to which a is raised.
+x_reg = QuantumRegister(4, 'x') # register holds superposition of powers, to which a is raised.
 base_reg = QuantumRegister(REG_SIZE, 'base') # Evaluate a^x in this register
 scratch_a = QuantumRegister(REG_SIZE, 'sca') 
 # Three scratch registers are needed. Each addition requires one carry register.
@@ -44,9 +44,9 @@ def flip_fifteen(circ, reg):
 	for bit in range(4):
 		circ.x(reg[bit])
 
-def main():
+def build_circuit():
 
-	qft(qc, x_reg, 6)
+	qft(qc, x_reg, 4)
 
 	#### Implement Exponentiation as a series of modular multiplications, Neilsen and Chang style
 	# NOTE: Selection of 2 as base allows bit shifts of one instead of multiplying base**i
@@ -95,3 +95,26 @@ def main():
 					mod_reg=scratch_a,
 					scratch_carry=scratch_b,
 					scratch_unadd=scratch_c)
+
+	"""At this point, base_reg holds a^x Mod N. Since x is superposition
+	from 0 to 15, base_reg is superposition of periodic mod function."""
+
+	# Get period of a^x Mod N
+	qft(qc, x_reg, 4)
+
+	"""Quantum portion of algorithm is complete.
+	-	Given period r = 4 for function 2^x Mod 15,we know 2^4 - 1 ModEquals 15 =>
+		(2^2 + 1)(2^2 - 1) ModEquals 15. GCD(3, 15) = 3 => 3 is a factor of 15,
+		GCD(5, 15) = 5 => 5 is a factor of 15.
+	-	Given period r = 6 for function 2^x Mod 21,we know 2^6 - 1 ModEquals 21 =>
+		(2^3 + 1)(2^3 - 1) ModEquals 21. GCD(9, 21) = 3 => 3 is a factor of 21,
+		GCD(7, 21) = 7 => 7 is a factor of 21."""
+
+	return qc
+
+def main():
+
+	circuit = build_circuit()
+	qc_opt = transpile(circuit, backend=backend, optimization_level=2)
+	simulate = execute(qc_opt, backend=backend, shots=1024).result()
+	print(simulate.get_counts())
