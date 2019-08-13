@@ -1,6 +1,6 @@
 """Implementation of Shor's Algorithm using Qiskit and QASN simulator."""
 """All code by Shmuel Jacobs, algorithms as cited
-Circuit is hard coded for specific case a=2, N=21
+Circuit is hard coded for specific case a=2, N=15 (N=21 code provided also)
 """
 
 from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister, execute, Aer, IBMQ
