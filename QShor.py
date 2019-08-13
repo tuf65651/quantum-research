@@ -11,11 +11,13 @@ from datetime import datetime
 import math
 
 REG_SIZE=6
+N=15
+N_len=4
 from ArithmaticFunctions import *
 
 backend = Aer.get_backend("qasm_simulator")
 
-x_reg = QuantumRegister(4, 'x') # register holds superposition of powers, to which a is raised.
+x_reg = QuantumRegister(N_len, 'x') # register holds superposition of powers, to which a is raised.
 base_reg = QuantumRegister(REG_SIZE, 'base') # Evaluate a^x in this register
 scratch_a = QuantumRegister(REG_SIZE, 'sca') 
 # Three scratch registers are needed. Each addition requires one carry register.
@@ -24,7 +26,7 @@ scratch_a = QuantumRegister(REG_SIZE, 'sca')
 scratch_b = QuantumRegister(REG_SIZE, 'scb')
 scratch_c = QuantumRegister(REG_SIZE, 'scc')
 class_reg = ClassicalRegister(REG_SIZE, 'y')
-qc = QuantumCircuit(x_reg, base_reg, scratch_a, scratch_b, scratch_c, class_reg)
+# qc = QuantumCircuit(x_reg, base_reg, scratch_a, scratch_b, scratch_c, class_reg)
 
 def qft(circ, q, n):
     """n-bit QFT on q in circ"""
@@ -42,12 +44,14 @@ def flip_twentyone(circ, reg):
 
 def flip_fifteen(circ, reg):
 
-	for bit in range(4):
+	for bit in range(N_len):
 		circ.x(reg[bit])
 
 def build_circuit():
+	"""In the interest of saving memory, this function only builds | x, y }> -> | x, a^x Mod y }>
+	and transpiles along the way. QFT can be added after transpile."""
 
-	qft(qc, x_reg, 4)
+	# qft(qc, x_reg, N_len)
 
 	#### Implement Exponentiation as a series of modular multiplications, Neilsen and Chang style
 	# NOTE: Selection of 2 as base allows bit shifts of one instead of multiplying base**i
@@ -62,6 +66,8 @@ def build_circuit():
 			- mod reduce
 	"""
 	
+	qc = QuantumCircuit(x_reg, base_reg, scratch_a, scratch_b, scratch_c, class_reg)
+
 	# Set base to 1
 	qc.x(base_reg[0])
 
@@ -97,11 +103,19 @@ def build_circuit():
 					scratch_carry=scratch_b,
 					scratch_unadd=scratch_c)
 
+
+		gate_count = qc.count_ops()
+		# Transpile after each U operation, or circuit will fill memory
+		try:
+			qc = transpile(qc, backend=backend, optimization_level=2)
+		except MemoryError:
+			print(f'Failed to transpile after multplying 2^{k} times, with {gate_count} gates in circuit.')
+
 	"""At this point, base_reg holds a^x Mod N. Since x is superposition
 	from 0 to 15, base_reg is superposition of periodic mod function."""
 
 	# Get period of a^x Mod N
-	qft(qc, x_reg, 4)
+	qft(qc, x_reg, N_len)
 
 	"""Quantum portion of algorithm is complete.
 	-	Given period r = 4 for function 2^x Mod 15,we know 2^4 - 1 ModEquals 15 =>
@@ -115,24 +129,29 @@ def build_circuit():
 
 def main():
 
+	first_QFT = QuantumCircuit(x_reg, base_reg, scratch_a, scratch_b, scratch_c, class_reg)
+	qft(first_QFT, x_reg, 4)
+
 	circuit = build_circuit()
-	num_unopt_ops = circuit.count_ops()
-	try:
-		clumsy_qasm_file = open("Shor_Clumsy.qasm", 'w')
-		clumsy_qasm_file.write(f'Un-optimized circuit uses {num_unopt_ops} gates')
-		clumsy_qasm_file.write(circuit.qasm())
-		clumsy_qasm_file.close()
-		del clumsy_qasm_file
-	except MemoryError:
-		print("Can't write non-optimized circuit to file.")
+	# num_unopt_ops = circuit.count_ops()
+	# try:
+	# 	clumsy_qasm_file = open("Shor_Clumsy.qasm", 'w')
+	# 	clumsy_qasm_file.write(f'Un-optimized circuit uses {num_unopt_ops} gates')
+	# 	clumsy_qasm_file.write(circuit.qasm())
+	# 	clumsy_qasm_file.close()
+	# 	del clumsy_qasm_file
+	# except MemoryError:
+	# 	print("Can't write non-optimized circuit to file.")
     
-	qc_opt = transpile(circuit, backend=backend, optimization_level=1)
+	# qc = transpile(circuit, backend=backend, optimization_level=2)
+	circuit = first_QFT + circuit
+
 	try:
 		qasm_out_file = open("Shor_Opt.qasm", 'w')
-		qasm_out_file.write(qc_opt.qasm())
+		qasm_out_file.write(circuit.qasm())
 		qasm_out_file.write("\n\n")
-		qasm_out_file.write(f'Optimized circuit uses {qc_opt.count_ops()} gates.')
-		qasm_out_file.write(f'Optimized circuit uses {qc_opt.depth()} qubits.')
+		qasm_out_file.write(f'Optimized circuit uses {circuit.count_ops()} gates.')
+		qasm_out_file.write(f'Optimized circuit uses {circuit.depth()} qubits.')
 	except MemoryError:
 		print("Can't write optimized circuit to file.")
 	finally:
