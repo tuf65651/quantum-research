@@ -256,7 +256,7 @@ def multiply(circuit, multiplicand, multiplier, scratch_zero_check, scratch_carr
 	@param scratch_carrier: QuantumRegister used as scratch register for additions"""
     
 	c_copy_register(circuit=circuit, control_bit=multiplier[0], origin=multiplicand, dest=prod_accumulator)
-    
+
     
 	for bit in range(1, len(multiplier)):
 		# free up scratch space
@@ -311,3 +311,13 @@ def mod_reduce(circuit, base_reg, mod_reg, scratch_carry, scratch_unadd):
 	twos_complement(circuit, base_reg, scratch_carry)
 	add_to_b_in_place(circuit, scratch_unadd, base_reg, scratch_carry)
 	twos_complement(circuit, base_reg, scratch_carry)
+
+
+def gcd( m, n):
+	"""Euclid's greatest common factor algorithm"""
+	r = m % n;
+	while r != 0:
+		m = n
+		n = r
+		r = m % n
+	return n
