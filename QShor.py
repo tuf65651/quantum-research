@@ -146,17 +146,18 @@ def main():
 	# qc = transpile(circuit, backend=backend, optimization_level=2)
 	circuit = first_QFT + circuit
 
-	try:
-		qasm_out_file = open("Shor_Opt.qasm", 'w')
-		qasm_out_file.write(circuit.qasm())
-		qasm_out_file.write("\n\n")
-		qasm_out_file.write(f'Optimized circuit uses {circuit.count_ops()} gates.')
-		qasm_out_file.write(f'Optimized circuit uses {circuit.depth()} qubits.')
-	except MemoryError:
-		print("Can't write optimized circuit to file.")
-	finally:
-		qasm_out_file.close()
-# 	simulate = execute(qc_opt, backend=backend, shots=1024).result()
-# 	print(simulate.get_counts())
+	# try:
+	# 	qasm_out_file = open("Shor_Opt.qasm", 'w')
+	# 	qasm_out_file.write(circuit.qasm())
+	# 	qasm_out_file.write("\n\n")
+	# 	qasm_out_file.write(f'Optimized circuit uses {circuit.count_ops()} gates.')
+	# 	qasm_out_file.write(f'Optimized circuit uses {circuit.depth()} qubits.')
+	# except MemoryError:
+	# 	print("Can't write optimized circuit to file.")
+	# finally:
+	# 	qasm_out_file.close()
+
+	simulate = execute(qc_opt, backend=backend, shots=32).result()
+	print(simulate.get_counts())
 
 main()
