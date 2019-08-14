@@ -5,7 +5,7 @@ Circuit is hard coded for specific case a=2, N=15 (N=21 code provided also)
 
 from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister, execute, Aer, IBMQ
 from qiskit.compiler import transpile, assemble
-from qiskit.tools.jupyter import *
+# from qiskit.tools.jupyter import *
 from qiskit.visualization import *
 from datetime import datetime
 import math
