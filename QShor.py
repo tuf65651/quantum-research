@@ -157,7 +157,13 @@ def main():
 	# finally:
 	# 	qasm_out_file.close()
 
-	simulate = execute(qc_opt, backend=backend, shots=32).result()
-	print(simulate.get_counts())
+	try:
+		qasm_out_file = open("results.txt", 'w')
+		simulate = execute(qc_opt, backend=backend, shots=32).result()
+		qasm_out_file.write(simulate.get_counts())
+	except MemoryError:
+		exit("Failed")
+	finally:
+		qasm_out_file.close()
 
 main()
